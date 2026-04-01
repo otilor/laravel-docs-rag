@@ -24,9 +24,10 @@ docs = loader.load()
 embeddings = OllamaEmbeddings(model="llama3.1")
 
 
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=200)
 all_splits = text_splitter.split_documents(docs)
 vector_1 = embeddings.embed_query(all_splits[0].page_content)
+vector_2 = embeddings.embed_query(all_splits[1].page_content)
 
 # print(vector_1)
 # exit
