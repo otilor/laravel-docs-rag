@@ -9,10 +9,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.embeddings import DeterministicFakeEmbedding
 from langchain_ollama import OllamaEmbeddings
 
-
-os.environ["LANGSMITH_tracing"] = "true"
-os.environ["LANGSMITH_API_KEY"] = getpass.getpass()
-
 #load and chunk contents of the blog
 loader = WebBaseLoader(
     web_paths=("https://lilianweng.github.io/posts/2023-06-23-agent/", ),
