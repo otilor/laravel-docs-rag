@@ -32,8 +32,8 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=20
 all_splits = text_splitter.split_documents(docs)
 vector_1 = embeddings.embed_query(all_splits[0].page_content)
 
-print(vector_1)
-exit
+# print(vector_1)
+# exit
 
 vector_store= Chroma(
     embedding_function=embeddings,
@@ -43,7 +43,8 @@ vector_store= Chroma(
 # Index chunks
 _ = vector_store.add_documents(documents=all_splits)
 
-# Construct a tool for retrieving context
-@bool(response_format="content_and_artifact")
-def retrieve_context(query: str):
-    pass
+
+results = vector_store.similarity_search(
+    "What does chain of hindsight mean?"
+)
+print(results)
