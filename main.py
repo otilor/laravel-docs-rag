@@ -1,47 +1,123 @@
-import getpass
-import os
-from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_openai import OpenAIEmbeddings
-from langchain_chroma import Chroma
+import json
+import requests
 import bs4
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.embeddings import DeterministicFakeEmbedding
+from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 
-#load and chunk contents of the blog
-loader = WebBaseLoader(
-    web_paths=("https://lilianweng.github.io/posts/2023-06-23-agent/", ),
-    bs_kwargs=dict(
-        parse_only=bs4.SoupStrainer(
-            class_=("post-content", "post-title", "post-header")
-        )
+BASE_URL = "https://laravel.com"
+DOCS_URL = f"{BASE_URL}/docs/13.x"
+COLLECTION_NAME = "laravel-13x-docs"
+PERSIST_DIR = "laravel_docs_db"
+EMBEDDING_MODEL = "nomic-embed-text"
+
+
+def fetch_doc_urls():
+    """Extract all documentation page URLs from the embedded Inertia JSON."""
+    response = requests.get(DOCS_URL)
+    response.raise_for_status()
+
+    soup = bs4.BeautifulSoup(response.text, "html.parser")
+    script_tag = soup.find("script", {"data-page": "app", "type": "application/json"})
+    page_data = json.loads(script_tag.string)
+
+    urls = []
+    for section in page_data["props"]["index"]:
+        section_title = section["title"]
+        for item in section.get("items", []):
+            url = BASE_URL + item["href"]
+            urls.append({
+                "url": url,
+                "title": item["title"],
+                "section": section_title,
+            })
+            print(f"  [{section_title}] {item['title']} -> {url}")
+
+    print(f"\nFound {len(urls)} documentation pages.\n")
+    return urls
+
+
+def load_docs(doc_urls):
+    """Load all documentation pages, keeping only the main content div."""
+    web_paths = [d["url"] for d in doc_urls]
+    metadata_by_url = {d["url"]: d for d in doc_urls}
+
+    loader = WebBaseLoader(
+        web_paths=web_paths,
+        bs_kwargs=dict(
+            parse_only=bs4.SoupStrainer(id="main-content")
+        ),
     )
-)
+    loader.requests_per_second = 2
 
-docs = loader.load()
+    print("Loading documentation pages...")
+    docs = loader.load()
 
-embeddings = OllamaEmbeddings(model="llama3.1")
+    for doc in docs:
+        source = doc.metadata.get("source", "")
+        if source in metadata_by_url:
+            doc.metadata["section"] = metadata_by_url[source]["section"]
+            doc.metadata["title"] = metadata_by_url[source]["title"]
 
-
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=4000, chunk_overlap=200)
-all_splits = text_splitter.split_documents(docs)
-vector_1 = embeddings.embed_query(all_splits[0].page_content)
-vector_2 = embeddings.embed_query(all_splits[1].page_content)
-
-# print(vector_1)
-# exit
-
-vector_store= Chroma(
-    embedding_function=embeddings,
-    persist_directory='my_file_db',
-    collection_name='sample',
-)
-# Index chunks
-_ = vector_store.add_documents(documents=all_splits)
+    print(f"Loaded {len(docs)} pages.\n")
+    return docs
 
 
-results = vector_store.similarity_search(
-    "What does chain of hindsight mean?"
-)
-print(results)
+def split_and_index(docs):
+    """Split documents into chunks and index them in Chroma."""
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1500,
+        chunk_overlap=200,
+    )
+    all_splits = text_splitter.split_documents(docs)
+    print(f"Split into {len(all_splits)} chunks.\n")
+
+    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
+
+    vector_store = Chroma(
+        embedding_function=embeddings,
+        persist_directory=PERSIST_DIR,
+        collection_name=COLLECTION_NAME,
+    )
+
+    existing = vector_store._collection.count()
+    if existing > 0:
+        print(f"Collection already has {existing} documents. Deleting and recreating...")
+        vector_store.delete_collection()
+        vector_store = Chroma(
+            embedding_function=embeddings,
+            persist_directory=PERSIST_DIR,
+            collection_name=COLLECTION_NAME,
+        )
+
+    batch_size = 50
+    for i in range(0, len(all_splits), batch_size):
+        batch = all_splits[i : i + batch_size]
+        vector_store.add_documents(documents=batch)
+        print(f"  Indexed batch {i // batch_size + 1} ({len(batch)} chunks)")
+
+    print(f"\nIndexing complete. Total chunks: {vector_store._collection.count()}\n")
+    return vector_store
+
+
+def search(vector_store, query, k=3):
+    """Run a similarity search and print results."""
+    print(f'Searching: "{query}"\n')
+    results = vector_store.similarity_search(query, k=k)
+    for i, result in enumerate(results, 1):
+        section = result.metadata.get("section", "?")
+        title = result.metadata.get("title", "?")
+        print(f"--- Result {i} [{section} > {title}] ---")
+        print(result.page_content[:300])
+        print()
+
+
+if __name__ == "__main__":
+    print("Fetching documentation index...\n")
+    doc_urls = fetch_doc_urls()
+
+    docs = load_docs(doc_urls)
+    split_and_index(docs)
+
+
