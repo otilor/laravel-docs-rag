@@ -2,7 +2,7 @@ import json
 import requests
 import bs4
 from langchain_community.document_loaders import WebBaseLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import HTMLSemanticPreservingSplitter, RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 
@@ -66,10 +66,7 @@ def load_docs(doc_urls):
 
 def split_and_index(docs):
     """Split documents into chunks and index them in Chroma."""
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1500,
-        chunk_overlap=200,
-    )
+    text_splitter = HTMLSemanticPreservingSplitter(chunk_size=1500, chunk_overlap=200)
     all_splits = text_splitter.split_documents(docs)
     print(f"Split into {len(all_splits)} chunks.\n")
 
