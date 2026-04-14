@@ -1,0 +1,111 @@
+{
+  "run_id": "20260414_155914_7225",
+  "timestamp": "2026-04-14T15:59:14.623645",
+  "query": "What metrics are supported in ragas 0.3?",
+  "result": {
+    "answer": "Error generating response: Error code: 404 - {'error': {'message': \"model 'gpt-4o' not found\", 'type': 'not_found_error', 'param': None, 'code': None}}",
+    "run_id": "20260414_155914_7225"
+  },
+  "num_documents": 5,
+  "traces": [
+    {
+      "event_type": "query_start",
+      "component": "rag_system",
+      "data": {
+        "run_id": "20260414_155914_7225",
+        "question": "What metrics are supported in ragas 0.3?",
+        "question_length": 40,
+        "top_k": 3,
+        "total_documents": 5
+      }
+    },
+    {
+      "event_type": "retrieval",
+      "component": "retriever",
+      "data": {
+        "operation": "retrieve_start",
+        "query": "What metrics are supported in ragas 0.3?",
+        "query_length": 40,
+        "top_k": 3,
+        "total_documents": 5
+      }
+    },
+    {
+      "event_type": "retrieval",
+      "component": "retriever",
+      "data": {
+        "operation": "retrieve_complete",
+        "num_retrieved": 3,
+        "scores": [
+          3,
+          3,
+          1
+        ],
+        "document_ids": [
+          0,
+          2,
+          1
+        ]
+      }
+    },
+    {
+      "event_type": "retrieval",
+      "component": "retriever",
+      "data": {
+        "operation": "retrieve_start",
+        "query": "What metrics are supported in ragas 0.3?",
+        "query_length": 40,
+        "top_k": 3,
+        "total_documents": 5
+      }
+    },
+    {
+      "event_type": "retrieval",
+      "component": "retriever",
+      "data": {
+        "operation": "retrieve_complete",
+        "num_retrieved": 3,
+        "scores": [
+          3,
+          3,
+          1
+        ],
+        "document_ids": [
+          0,
+          2,
+          1
+        ]
+      }
+    },
+    {
+      "event_type": "llm_call",
+      "component": "openai_api",
+      "data": {
+        "operation": "generate_response",
+        "model": "gpt-4o",
+        "query": "What metrics are supported in ragas 0.3?",
+        "prompt_length": 513,
+        "context_length": 223,
+        "num_context_docs": 3
+      }
+    },
+    {
+      "event_type": "error",
+      "component": "openai_api",
+      "data": {
+        "operation": "generate_response",
+        "error": "Error code: 404 - {'error': {'message': \"model 'gpt-4o' not found\", 'type': 'not_found_error', 'param': None, 'code': None}}"
+      }
+    },
+    {
+      "event_type": "query_complete",
+      "component": "rag_system",
+      "data": {
+        "run_id": "20260414_155914_7225",
+        "success": true,
+        "response_length": 151,
+        "num_retrieved": 3
+      }
+    }
+  ]
+}
