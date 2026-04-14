@@ -20,10 +20,10 @@ def search(vector_store, query, k=3):
     results = vector_store.similarity_search(query, k=k)
     print()
     for i, result in enumerate(results, 1):
-        section = result.metadata.get("section", "?")
+        section_path = result.metadata.get("section_path", result.metadata.get("section", "?"))
         title = result.metadata.get("title", "?")
         source = result.metadata.get("source", "")
-        print(f"--- Result {i} [{section} > {title}] ---")
+        print(f"--- Result {i} [{section_path} > {title}] ---")
         print(f"URL: {source}")
         print(result.page_content[:500])
         print()
