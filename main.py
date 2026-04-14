@@ -66,8 +66,32 @@ def load_docs(doc_urls):
 
 def split_and_index(docs):
     """Split documents into chunks and index them in Chroma."""
-    text_splitter = HTMLSemanticPreservingSplitter(chunk_size=1500, chunk_overlap=200)
-    all_splits = text_splitter.split_documents(docs)
+    text_splitter = HTMLSemanticPreservingSplitter(
+        headers_to_split_on=[("h1", "h1"), ("h2", "h2"), ("h3", "h3")],
+        max_chunk_size=1500,
+        chunk_overlap=200,
+        preserve_links=True,
+        elements_to_preserve=["pre", "code", "table", "ul", "ol", "li"]
+    )
+
+    all_splits = []
+    for doc in docs:
+        html = doc.page_content
+        chunks = text_splitter.split_text(html)
+
+        for c in chunks:
+            c.metadata.update(doc.metadata)
+
+            h1 = c.metadata.get("h1")
+            h2 = c.metadata.get("h2")
+            h3 = c.metadata.get("h3")
+            section_path = " > ".join([x for x in [h1, h2, h3] if x])
+
+
+            if section_path:
+                c.metadata["section_path"] = section_path
+
+    all_splits.extend(chunks)
     print(f"Split into {len(all_splits)} chunks.\n")
 
     embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
