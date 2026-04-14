@@ -1,7 +1,7 @@
 import json
 import requests
 import bs4
-from langchain_community.document_loaders import WebBaseLoader
+from langchain_core.documents import Document
 from langchain_text_splitters import HTMLSemanticPreservingSplitter, RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
@@ -11,6 +11,7 @@ DOCS_URL = f"{BASE_URL}/docs/13.x"
 COLLECTION_NAME = "laravel-13x-docs"
 PERSIST_DIR = "laravel_docs_db"
 EMBEDDING_MODEL = "nomic-embed-text"
+MAX_EMBED_CHARS = 6000
 
 
 def fetch_doc_urls():
@@ -39,26 +40,30 @@ def fetch_doc_urls():
 
 
 def load_docs(doc_urls):
-    """Load all documentation pages, keeping only the main content div."""
-    web_paths = [d["url"] for d in doc_urls]
-    metadata_by_url = {d["url"]: d for d in doc_urls}
-
-    loader = WebBaseLoader(
-        web_paths=web_paths,
-        bs_kwargs=dict(
-            parse_only=bs4.SoupStrainer(id="main-content")
-        ),
-    )
-    loader.requests_per_second = 2
-
+    """Load docs while preserving semantic HTML for section-aware splitting."""
+    docs = []
     print("Loading documentation pages...")
-    docs = loader.load()
+    for i, item in enumerate(doc_urls, 1):
+        response = requests.get(item["url"])
+        response.raise_for_status()
+        soup = bs4.BeautifulSoup(response.text, "html.parser")
+        main_content = soup.find(id="main-content")
+        if not main_content:
+            print(f"  Skipping page with missing #main-content: {item['url']}")
+            continue
 
-    for doc in docs:
-        source = doc.metadata.get("source", "")
-        if source in metadata_by_url:
-            doc.metadata["section"] = metadata_by_url[source]["section"]
-            doc.metadata["title"] = metadata_by_url[source]["title"]
+        docs.append(
+            Document(
+                page_content=str(main_content), 
+                metadata={
+                    "source": item["url"],
+                    "section": item["section"],
+                    "title": item["title"],
+                },
+            )
+        )
+        if i % 25 == 0 or i == len(doc_urls):
+            print(f"  Loaded {i}/{len(doc_urls)} pages...")
 
     print(f"Loaded {len(docs)} pages.\n")
     return docs
@@ -73,9 +78,13 @@ def split_and_index(docs):
         preserve_links=True,
         elements_to_preserve=["pre", "code", "table", "ul", "ol", "li"]
     )
+    overflow_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=2200,
+        chunk_overlap=250,
+    )
 
     all_splits = []
-    for doc in docs:
+    for idx, doc in enumerate(docs, 1):
         html = doc.page_content
         chunks = text_splitter.split_text(html)
 
@@ -91,7 +100,20 @@ def split_and_index(docs):
             if section_path:
                 c.metadata["section_path"] = section_path
 
-    all_splits.extend(chunks)
+            # HTML preserving split can still emit very large chunks for some code/table blocks.
+            if len(c.page_content) > MAX_EMBED_CHARS:
+                sub_chunks = overflow_splitter.split_text(c.page_content)
+                for sub_chunk in sub_chunks:
+                    all_splits.append(
+                        Document(
+                            page_content=sub_chunk,
+                            metadata={**c.metadata, "overflow_split": True},
+                        )
+                    )
+            else:
+                all_splits.append(c)
+        if idx % 25 == 0 or idx == len(docs):
+            print(f"  Split {idx}/{len(docs)} pages...")
     print(f"Split into {len(all_splits)} chunks.\n")
 
     embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
@@ -140,5 +162,3 @@ if __name__ == "__main__":
 
     docs = load_docs(doc_urls)
     split_and_index(docs)
-
-
