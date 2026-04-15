@@ -83,6 +83,7 @@ class ExampleRAG:
     def __init__(
         self,
         llm_client,
+        model_name: str = "llama3.1",
         retriever: Optional[BaseRetriever] = None,
         system_prompt: Optional[str] = None,
         logdir: str = "logs",
@@ -97,6 +98,7 @@ class ExampleRAG:
             logdir: Directory for trace log files
         """
         self.llm_client = llm_client
+        self.model_name = model_name
         self.retriever = retriever or SimpleKeywordRetriever()
         self.system_prompt = (
             system_prompt
@@ -289,7 +291,7 @@ class ExampleRAG:
                 component="openai_api",
                 data={
                     "operation": "generate_response",
-                    "model": "gpt-4o",
+                    "model": self.model_name,
                     "query": query,
                     "prompt_length": len(prompt),
                     "context_length": len(context),
@@ -300,7 +302,7 @@ class ExampleRAG:
 
         try:
             response = self.llm_client.chat.completions.create(
-                model="gpt-4o",
+                model=self.model_name,
                 messages=[
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": prompt},
@@ -319,7 +321,7 @@ class ExampleRAG:
                         "usage": (
                             response.usage.model_dump() if response.usage else None
                         ),
-                        "model": "gpt-4o",
+                        "model": self.model_name,
                     },
                 )
             )
@@ -439,7 +441,9 @@ class ExampleRAG:
         return log_filepath
 
 
-def default_rag_client(llm_client, logdir: str = "logs") -> ExampleRAG:
+def default_rag_client(
+    llm_client, model_name: str = "llama3.1", logdir: str = "logs"
+) -> ExampleRAG:
     """
     Create a default RAG client with OpenAI LLM and optional retriever.
 
@@ -450,7 +454,12 @@ def default_rag_client(llm_client, logdir: str = "logs") -> ExampleRAG:
         ExampleRAG instance
     """
     retriever = SimpleKeywordRetriever()
-    client = ExampleRAG(llm_client=llm_client, retriever=retriever, logdir=logdir)
+    client = ExampleRAG(
+        llm_client=llm_client,
+        model_name=model_name,
+        retriever=retriever,
+        logdir=logdir,
+    )
     client.add_documents(DOCUMENTS)  # Add default documents
     return client
 
