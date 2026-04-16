@@ -1,94 +1,110 @@
-# RAG Evaluation
+# Laravel Docs RAG Eval
 
-Evaluate a RAG (Retrieval Augmented Generation) system with custom metrics
+This folder contains a practical evaluation harness for your Laravel docs RAG system.
+It pulls a QA dataset, runs your retrieval chain, and scores each answer as `pass` or
+`fail` using Ragas (with a fallback evaluator for local models).
 
-## Quick Start
+## What this does
 
-### 1. Set Your API Key
+- Loads 200 questions from `yannelli/laravel-11-qa`
+- Sends each question through your app chain (`build_chain()` from `search.py`)
+- Grades responses against ground truth notes
+- Writes a CSV with all questions, answers, and scores
 
-Choose your LLM provider:
+## Screenshots
 
-```bash
-# OpenAI (default)
-export OPENAI_API_KEY="your-openai-key"
+### Eval run
 
-# Or use Anthropic Claude
-export ANTHROPIC_API_KEY="your-anthropic-key"
+![Eval run output](../images/s1.png)
 
-# Or use Google Gemini
-export GOOGLE_API_KEY="your-google-key"
-```
+### Results view
 
-### 2. Install Dependencies
+![Evaluation results](../images/s2.png)
 
-Using `uv` (recommended):
+## Quick start
+
+From the `rag_eval` directory:
+
+1) Install dependencies
 
 ```bash
 uv sync
 ```
 
-Or using `pip`:
+Or:
 
 ```bash
 pip install -e .
 ```
 
-### 3. Run the Evaluation
+2) Make sure your model endpoint is available
 
-Using `uv`:
+The current `evals.py` is configured for a local Ollama-compatible endpoint:
+
+```python
+client = OpenAI(api_key="ollama", base_url="http://localhost:11434/v1")
+MODEL_NAME = "llama3.1"
+```
+
+If you switch providers, update the client and `llm_factory(...)` setup in `evals.py`.
+
+3) Run the evaluation
 
 ```bash
 uv run python evals.py
 ```
 
-Or using `pip`:
+Or:
 
 ```bash
 python evals.py
 ```
 
-## Project Structure
+## Output
 
-```
+After a successful run, results are written to:
+
+`rag_eval/experiments/laravel11_qa_eval_200.csv`
+
+CSV columns:
+
+- `question`
+- `grading_notes`
+- `response`
+- `score` (`pass` or `fail`)
+- `log_file` (whether Ragas metric or fallback judge produced the score)
+
+## Customize it
+
+### Change dataset size or source
+
+Edit these constants in `evals.py`:
+
+- `HF_DATASET`
+- `MAX_QUESTIONS`
+- `RANDOM_SEED`
+
+### Change evaluation logic
+
+Update `my_metric` in `evals.py` to adjust grading criteria, or replace the
+fallback judge prompt in `fallback_judge(...)`.
+
+### Change your RAG app behavior
+
+The evaluated chain comes from `build_chain()` in `search.py`. Improve retrieval,
+prompting, or reranking there and rerun this benchmark.
+
+## File map
+
+```text
 rag_eval/
-├── README.md           # This file
-├── pyproject.toml      # Project configuration
-├── rag.py              # Your RAG application code
-├── evals.py            # Evaluation workflow
-├── __init__.py         # Makes this a Python package
-└── evals/              # Evaluation-related data
-    ├── datasets/       # Test datasets
-    ├── experiments/    # Experiment results
-    └── logs/           # Evaluation logs and traces
+├── README.md
+├── pyproject.toml
+├── evals.py
+├── experiments/
+└── evals/
 ```
 
-## Customization
+## Useful docs
 
-### Modify the LLM Provider
-
-In `evals.py`, update the LLM configuration:
-
-```python
-from ragas.llms import llm_factory
-
-# Use Anthropic Claude
-llm = llm_factory("claude-3-5-sonnet-20241022", provider="anthropic")
-
-# Use Google Gemini
-llm = llm_factory("gemini-1.5-pro", provider="google")
-
-# Use local Ollama
-llm = llm_factory("mistral", provider="ollama", base_url="http://localhost:11434")
-```
-
-### Customize Test Cases
-
-Edit the `load_dataset()` function in `evals.py` to add or modify test cases.
-
-### Change Evaluation Metrics
-
-Update the `my_metric` definition in `evals.py` to use different grading criteria.
-
-## Documentation
-
-Visit https://docs.ragas.io for more information.
+- [Ragas docs](https://docs.ragas.io)
