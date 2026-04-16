@@ -5,5 +5,7 @@ Summary: RAG evaluation example using Ragas
 Requires-Python: >=3.9
 Requires-Dist: ragas[all]>=0.3.0
 Requires-Dist: openai>=1.0.0
+Requires-Dist: langchain-chroma>=0.2.6
+Requires-Dist: langchain-ollama>=0.3.10
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"

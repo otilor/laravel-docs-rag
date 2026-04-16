@@ -1,5 +1,7 @@
 ragas[all]>=0.3.0
 openai>=1.0.0
+langchain-chroma>=0.2.6
+langchain-ollama>=0.3.10
 
 [dev]
 pytest>=7.0
